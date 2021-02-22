@@ -57,6 +57,7 @@ module.exports.Client = class {
     }
 
     refreshTokens() {
+        this.client_enabled = false;
         const url = base + `v1/oauth2/token`
         const body = `client_id=${this.id}&grant_type=refresh_token&refresh_token=${this.refresh_token}`;
         return axios.post(url, body, { headers: { "Content-Type": "application/x-www-form-urlencoded", "Authorization": "Basic " + this.id } })
@@ -71,7 +72,8 @@ module.exports.Client = class {
         this.access_token = access_token;
         this.refresh_token = refresh_token;
         setTimeout(() => this.refreshTokens(), expires_in - 10000);
-        console.log("Login or Refresh successful")
+        console.log("Login or Refresh successful");
+        this.client_enabled = true;
     }
 
     getAnimelist(limit = 30) {
