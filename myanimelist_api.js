@@ -1,29 +1,6 @@
+const { default: axios } = require("axios");
+
 const base = "https://myanimelist.net/";
-
-const codes = new Map();
-
-/**
- * Method is "plain" by default
- * Get Authorization code url
- */
-module.exports.genAuthUrlv1 = async function (client_id, redirect) {
-    const challengeCode = generate_code_verifier();
-    codes.set(client_id, challengeCode);
-    return base + `v1/oauth2/authorize?response_type=code&client_id=${client_id}&code_challenge=${challengeCode}${redirect ? `&redirect_uri=${redirect}` : ""}&code_challenge_method=plain`;
-}
-
-/**
- * Exchange authorization code for refresh and access tokens url
- */
-module.exports.genTokenExchangeUrl = async function () {
-    return base + `v1/oauth2/token`
-}
-
-module.exports.getVerificationCode = function (client_id) {
-    const code = codes.get(client_id);
-    codes.delete(client_id);
-    return code;
-}
 
 /**
  * Code Verifier = Code Challenge if method is plain 
@@ -43,4 +20,49 @@ function between(min, max) {
     return Math.floor(
         Math.random() * (max - min) + min
     )
+}
+
+module.exports.Client = class {
+    id = null;
+    verifier_code = null;
+    access_token = null;
+    refresh_token = null;
+
+    constructor(client_id) {
+        this.id = client_id;
+        this.verifier_code = generate_code_verifier();
+    }
+
+    initOAuthProcess() {
+        /*${redirect ? `&redirect_uri=${redirect}` : ""}*/
+        return base + `v1/oauth2/authorize?response_type=code&client_id=${this.id}&code_challenge=${this.verifier_code}&code_challenge_method=plain`;
+    }
+
+    challengeAccepted(authorization_code) {
+        const url = base + `v1/oauth2/token`
+        const body = `client_id=${this.id}&grant_type=authorization_code&code=${authorization_code}&code_verifier=${this.verifier_code}`;
+        return axios.post(url, body, { headers: { "Content-Type": "application/x-www-form-urlencoded", "Authorization": "Basic " + this.id } })
+            .then(r => r.data)
+            .then(json => {
+                this.setOAuthResult(json);
+            })
+    }
+
+    refreshTokens() {
+        const url = base + `v1/oauth2/token`
+        const body = `client_id=${this.id}&grant_type=refresh_token&refresh_token=${this.refresh_token}`;
+        return axios.post(url, body, { headers: { "Content-Type": "application/x-www-form-urlencoded", "Authorization": "Basic " + this.id } })
+            .then(r => r.data)
+            .then(json => {
+                this.setOAuthResult(json);
+            })
+    }
+
+    setOAuthResult(data) {
+        const { expires_in, access_token, refresh_token } = data;
+        this.access_token = access_token;
+        this.refresh_token = refresh_token;
+        setTimeout(() => this.refreshTokens(), expires_in - 10000);
+        console.log("Login or Refresh successful")
+    }
 }
