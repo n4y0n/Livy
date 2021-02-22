@@ -45,9 +45,7 @@ module.exports.Client = class {
     initOAuthProcess() {
         /*${redirect ? `&redirect_uri=${redirect}` : ""}*/
         LoginInformation.findOne({
-            where: {
-                access_expire: { [Sequelize.Op.gte]: new Date(Date.now() - 2415600) }
-            }
+            where: { api: "myanimelist" }
         }).then(li => {
             console.log("Found still unexpired tokens. Using those or open the url to reset.");
             this.setOAuthResult({ access_token: li.access_token, refresh_token: li.refresh_token, expires_in: li.access_expire - new Date() });
@@ -75,7 +73,7 @@ module.exports.Client = class {
 
     updateDb(json) {
         LoginInformation
-            .create({ api: "myanimelist", access_token: json.access_token, refresh_token: json.refresh_token, access_expire: new Date(Date.now() + json.expires_in), refresh_expire: null })
+            .create({ api: "myanimelist", access_token: json.access_token, refresh_token: json.refresh_token, access_expire: new Date(Date.now() + json.expires_in), refresh_expire: new Date(Date.now() + 2678400000) })
             .then(result => console.log("Login or Refresh successful"));
         this.setOAuthResult(json);
     }
