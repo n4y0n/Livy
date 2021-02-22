@@ -1,25 +1,34 @@
-const axios = require("axios").default;
-
 const base = "https://myanimelist.net/";
+
+const codes = new Map();
 
 /**
  * Method is "plain" by default
- * 
- * @param {*} client_id 
- * @param {*} state 
- * @param {*} redirect_uri 
- * @param {*} pkce_code 
+ * Get Authorization code url
  */
-module.exports.authenticatev1 = function (client_id, pkce_code) {
-    console.log("CHALLENGE CODE: %s", pkce_code);
-    const authurl = base + `v1/oauth2/authorize?response_type=code&client_id=${client_id}&code_challenge=${pkce_code}&code_challenge_method=plain`;
-    return axios.get(authurl);
+module.exports.genAuthUrlv1 = async function (client_id, redirect) {
+    const challengeCode = generate_code_verifier();
+    codes.set(client_id, challengeCode);
+    return base + `v1/oauth2/authorize?response_type=code&client_id=${client_id}&code_challenge=${challengeCode}${redirect ? `&redirect_uri=${redirect}` : ""}&code_challenge_method=plain`;
+}
+
+/**
+ * Exchange authorization code for refresh and access tokens url
+ */
+module.exports.genTokenExchangeUrl = async function () {
+    return base + `v1/oauth2/token`
+}
+
+module.exports.getVerificationCode = function (client_id) {
+    const code = codes.get(client_id);
+    codes.delete(client_id);
+    return code;
 }
 
 /**
  * Code Verifier = Code Challenge if method is plain 
  */
-module.exports.generate_code_verifier = function () {
+function generate_code_verifier() {
     const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
     let gen = "";
 

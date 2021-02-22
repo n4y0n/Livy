@@ -23,6 +23,7 @@
   "homepage": "https://github.com/n4y0n/livy#readme",
   "dependencies": {
     "axios": "^0.21.1",
-    "express": "^4.17.1"
+    "express": "^4.17.1",
+    "form-data": "^4.0.0"
   }
 }
