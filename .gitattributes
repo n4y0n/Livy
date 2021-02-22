@@ -1,1 +1,2 @@
 secrets.json filter=git-crypt diff=git-crypt
+*.db filter=git-crypt diff=git-crypt

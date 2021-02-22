@@ -1,5 +1,7 @@
 const express = require("express");
+const os = require("os");
 
+const { sequelize } = require("./models/index")
 const { Client } = require("./myanimelist_api");
 const { myanimelist } = require("./secrets.json");
 
@@ -17,14 +19,13 @@ app.get("/auth_callback", (req, res) => {
 
 
 app.use((req, res) => {
-    console.log(req.query)
-    console.log(req.params)
-    console.log(req.body)
-    console.log(req.url)
+    mal.getAnimelist().next().then(console.log)
     res.sendStatus(200);
 })
 
 app.listen(3000, () => {
-    console.log("Myanimelist OAuth URL: %s", mal.initOAuthProcess());
-    console.log("Listening on port: %s", 3000)
+    sequelize.sync().then(() => {
+        console.log("Myanimelist OAuth URL: %s", mal.initOAuthProcess());
+        console.log("Listening on: %s:%s", os.networkInterfaces()["Wi-Fi"][0].address, 3000)
+    })
 })

@@ -1,4 +1,5 @@
 const { default: axios } = require("axios");
+const { LoginInformation, Sequelize } = require("./models/index");
 
 const base = "https://myanimelist.net/";
 
@@ -43,6 +44,15 @@ module.exports.Client = class {
 
     initOAuthProcess() {
         /*${redirect ? `&redirect_uri=${redirect}` : ""}*/
+        LoginInformation.findOne({
+            where: {
+                access_expire: { [Sequelize.Op.gte]: new Date(Date.now() - 2415600) }
+            }
+        }).then(li => {
+            console.log("Found still unexpired tokens. Using those or open the url to reset.");
+            this.setOAuthResult({ access_token: li.access_token, refresh_token: li.refresh_token, expires_in: li.access_expire - new Date() });
+        });
+
         return base + `v1/oauth2/authorize?response_type=code&client_id=${this.id}&code_challenge=${this.verifier_code}&code_challenge_method=plain`;
     }
 
@@ -51,9 +61,7 @@ module.exports.Client = class {
         const body = `client_id=${this.id}&grant_type=authorization_code&code=${authorization_code}&code_verifier=${this.verifier_code}`;
         return axios.post(url, body, { headers: { "Content-Type": "application/x-www-form-urlencoded", "Authorization": "Basic " + this.id } })
             .then(r => r.data)
-            .then(json => {
-                this.setOAuthResult(json);
-            })
+            .then(json => this.updateDb(json));
     }
 
     refreshTokens() {
@@ -62,9 +70,14 @@ module.exports.Client = class {
         const body = `client_id=${this.id}&grant_type=refresh_token&refresh_token=${this.refresh_token}`;
         return axios.post(url, body, { headers: { "Content-Type": "application/x-www-form-urlencoded", "Authorization": "Basic " + this.id } })
             .then(r => r.data)
-            .then(json => {
-                this.setOAuthResult(json);
-            })
+            .then(json => this.updateDb(json));
+    }
+
+    updateDb(json) {
+        LoginInformation
+            .create({ api: "myanimelist", access_token: json.access_token, refresh_token: json.refresh_token, access_expire: new Date(Date.now() + json.expires_in), refresh_expire: null })
+            .then(result => console.log("Login or Refresh successful"));
+        this.setOAuthResult(json);
     }
 
     setOAuthResult(data) {
@@ -72,14 +85,28 @@ module.exports.Client = class {
         this.access_token = access_token;
         this.refresh_token = refresh_token;
         setTimeout(() => this.refreshTokens(), expires_in - 10000);
-        console.log("Login or Refresh successful");
         this.client_enabled = true;
     }
 
     getAnimelist(limit = 30) {
-        assert_enable(this.client_enabled);
+        const client_enabled = this.client_enabled;
         const url = `https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status&limit=${limit}`
-        return axios.get(url, { headers: { 'Authorization': 'Bearer ' + this.access_token } }).then(r => r.data);
+        const token = this.access_token;
+
+        return {
+            _npage: null,
+            next: async function () {
+                assert_enable(client_enabled);
+                try {
+                    const result = await axios.get(url, { headers: { 'Authorization': 'Bearer ' + token } }).then(r => r.data);
+                    console.log(result)
+                    return { done: false, value: result.data };
+                } catch (e) {
+                    return { done: true };
+                }
+            },
+            [Symbol.asyncIterator]: function () { return this; }
+        }
     }
 
     getAccessToken() {
