@@ -1,0 +1,24 @@
+{
+  "name": "livy",
+  "version": "0.0.0",
+  "description": "Backup myanimelist to anilist.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/n4y0n/livy.git"
+  },
+  "keywords": [
+    "backup",
+    "myanimelist",
+    "anilist"
+  ],
+  "author": "n4y0n",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/n4y0n/livy/issues"
+  },
+  "homepage": "https://github.com/n4y0n/livy#readme"
+}
