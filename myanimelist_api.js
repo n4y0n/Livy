@@ -74,9 +74,13 @@ module.exports.Client = class {
         console.log("Login or Refresh successful")
     }
 
-    getAnimelist() {
+    getAnimelist(limit = 30) {
         assert_enable(this.client_enabled);
+        const url = `https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status&limit=${limit}`
+        return axios.get(url, { headers: { 'Authorization': 'Bearer ' + this.access_token } }).then(r => r.data);
+    }
 
-
+    getAccessToken() {
+        return this.access_token;
     }
 }

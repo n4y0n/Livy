@@ -9,7 +9,7 @@ const app = express();
 
 app.get("/auth_callback", (req, res) => {
     if (req.query.code) {
-        mal.challengeAccepted(req.query.code).then(result => res.sendStatus(200));
+        mal.challengeAccepted(req.query.code).then(result => res.sendStatus(200)).then(e => console.log("%s", mal.getAccessToken()));
     } else {
         res.sendStatus(401);
     }
