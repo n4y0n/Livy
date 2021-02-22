@@ -22,11 +22,19 @@ function between(min, max) {
     )
 }
 
+function assert_enable(e) {
+    if (!e) {
+        throw new Error("Client not enabled, please log in first using the OAuth Url in the console.")
+    }
+}
+
 module.exports.Client = class {
     id = null;
     verifier_code = null;
     access_token = null;
     refresh_token = null;
+
+    client_enabled = false;
 
     constructor(client_id) {
         this.id = client_id;
@@ -64,5 +72,11 @@ module.exports.Client = class {
         this.refresh_token = refresh_token;
         setTimeout(() => this.refreshTokens(), expires_in - 10000);
         console.log("Login or Refresh successful")
+    }
+
+    getAnimelist() {
+        assert_enable(this.client_enabled);
+
+
     }
 }

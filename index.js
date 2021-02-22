@@ -25,6 +25,6 @@ app.use((req, res) => {
 })
 
 app.listen(3000, () => {
-    console.log("OAuth URL: %s", mal.initOAuthProcess());
+    console.log("Myanimelist OAuth URL: %s", mal.initOAuthProcess());
     console.log("Listening on port: %s", 3000)
 })
