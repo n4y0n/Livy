@@ -29,11 +29,21 @@ function assert_enable(e) {
     }
 }
 
+async function upsert(condition, values) {
+    return LoginInformation.findOne({ where: condition })
+        .then(function (obj) {
+            // update
+            if (obj)
+                return obj.update(values);
+            // insert
+            return LoginInformation.create(values);
+        })
+}
+
 module.exports.Client = class {
     id = null;
     verifier_code = null;
-    access_token = null;
-    refresh_token = null;
+    tokens = null;
 
     client_enabled = false;
 
@@ -44,11 +54,13 @@ module.exports.Client = class {
 
     initOAuthProcess() {
         /*${redirect ? `&redirect_uri=${redirect}` : ""}*/
-        LoginInformation.findOne({
-            where: { api: "myanimelist" }
-        }).then(li => {
-            console.log("Found still unexpired tokens. Using those or open the url to reset.");
-            this.setOAuthResult({ access_token: li.access_token, refresh_token: li.refresh_token, expires_in: li.access_expire - new Date() });
+        upsert({ api: "myanimelist" }, { api: "myanimelist" }).then(li => {
+            if (li.refresh_expire > new Date(Date.now() + 864000000)) {
+                console.log("Found still unexpired tokens. Using those.");
+                this.tokens = li;
+            } else {
+                console.log("Please authenticate.")
+            }
         });
 
         return base + `v1/oauth2/authorize?response_type=code&client_id=${this.id}&code_challenge=${this.verifier_code}&code_challenge_method=plain`;
@@ -72,24 +84,29 @@ module.exports.Client = class {
     }
 
     updateDb(json) {
-        LoginInformation
-            .create({ api: "myanimelist", access_token: json.access_token, refresh_token: json.refresh_token, access_expire: new Date(Date.now() + json.expires_in), refresh_expire: new Date(Date.now() + 2678400000) })
-            .then(result => console.log("Login or Refresh successful"));
+        li.access_token = json.access_token;
+        li.refresh_token = json.refresh_token;
+        li.access_expire = json.expires_in;
+        li.refresh_expire = new Date(Date.now() + )
+
+        li.save().then(result => console.log("Login or Refresh successful"));
         this.setOAuthResult(json);
     }
 
     setOAuthResult(data) {
         const { expires_in, access_token, refresh_token } = data;
-        this.access_token = access_token;
-        this.refresh_token = refresh_token;
+        this.tokens.access_expire = expires_in;
+        this.tokens.access_token = access_token;
+        this.tokens.refresh_token = refresh_token;
         setTimeout(() => this.refreshTokens(), expires_in - 10000);
+        this.tokens.save();
         this.client_enabled = true;
     }
 
     getAnimelist(limit = 30) {
         const client_enabled = this.client_enabled;
         const url = `https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status&limit=${limit}`
-        const token = this.access_token;
+        const token = this.tokens.access_token;
 
         return {
             _npage: null,
@@ -108,6 +125,6 @@ module.exports.Client = class {
     }
 
     getAccessToken() {
-        return this.access_token;
+        return this.tokens.access_token;
     }
 }
