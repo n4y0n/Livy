@@ -1,5 +1,6 @@
 const express = require("express");
 const os = require("os");
+const opn = require("opn");
 
 const { sequelize } = require("./models/index")
 const { Client } = require("./myanimelist_api");
@@ -25,7 +26,11 @@ app.use((req, res) => {
 
 app.listen(3000, () => {
     sequelize.sync().then(() => {
-        console.log("Myanimelist OAuth URL: %s", mal.initOAuthProcess());
+        const oauthUrl = mal.initOAuthProcess();
+
+        console.log("Myanimelist OAuth URL: %s", oauthUrl);
+        opn(oauthUrl);
+
         console.log("Listening on: %s:%s", os.networkInterfaces()["Wi-Fi"][0].address, 3000)
     })
 })
