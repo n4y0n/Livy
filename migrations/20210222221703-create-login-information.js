@@ -9,7 +9,8 @@ module.exports = {
         type: Sequelize.INTEGER
       },
       api: {
-        type: Sequelize.ENUM('anilist', 'myanimelist')
+        type: Sequelize.ENUM('anilist', 'myanimelist'),
+        unique: true
       },
       access_token: {
         type: Sequelize.STRING
