@@ -1,5 +1,5 @@
 const { default: axios } = require("axios");
-const { LoginInformation, Sequelize } = require("./models/index");
+const { LoginInformation } = require("./models/index");
 
 const base = "https://myanimelist.net/";
 
@@ -40,7 +40,7 @@ async function upsert(condition, values) {
         })
 }
 
-module.exports.Client = class {
+class Client {
     id = null;
     verifier_code = null;
     tokens = null;
@@ -53,14 +53,16 @@ module.exports.Client = class {
     }
 
     initOAuthProcess() {
-        /*${redirect ? `&redirect_uri=${redirect}` : ""}*/
-        upsert({ api: "myanimelist" }, { api: "myanimelist" }).then(li => {
-            if (li.refresh_expire > new Date(Date.now() + 864000000)) {
+        upsert({ api: "myanimelist" }, { api: "myanimelist" }).then(dbTokens => {
+            if (dbTokens.refresh_expire > new Date(Date.now() + 864000000)) {
                 console.log("Found still unexpired tokens. Using those.");
-                this.tokens = li;
+                // TODO: Set access token expiration timeout.
+                // setTimeout(() => this.refreshTokens(), expires_in - 10000);
             } else {
                 console.log("Please authenticate.")
             }
+
+            this.tokens = dbTokens;
         });
 
         return base + `v1/oauth2/authorize?response_type=code&client_id=${this.id}&code_challenge=${this.verifier_code}&code_challenge_method=plain`;
@@ -71,7 +73,7 @@ module.exports.Client = class {
         const body = `client_id=${this.id}&grant_type=authorization_code&code=${authorization_code}&code_verifier=${this.verifier_code}`;
         return axios.post(url, body, { headers: { "Content-Type": "application/x-www-form-urlencoded", "Authorization": "Basic " + this.id } })
             .then(r => r.data)
-            .then(json => this.updateDb(json));
+            .then(json => this.setOAuthResult(json));
     }
 
     refreshTokens() {
@@ -80,21 +82,12 @@ module.exports.Client = class {
         const body = `client_id=${this.id}&grant_type=refresh_token&refresh_token=${this.refresh_token}`;
         return axios.post(url, body, { headers: { "Content-Type": "application/x-www-form-urlencoded", "Authorization": "Basic " + this.id } })
             .then(r => r.data)
-            .then(json => this.updateDb(json));
-    }
-
-    updateDb(json) {
-        li.access_token = json.access_token;
-        li.refresh_token = json.refresh_token;
-        li.access_expire = json.expires_in;
-        li.refresh_expire = new Date(Date.now() + )
-
-        li.save().then(result => console.log("Login or Refresh successful"));
-        this.setOAuthResult(json);
+            .then(json => this.setOAuthResult(json));
     }
 
     setOAuthResult(data) {
         const { expires_in, access_token, refresh_token } = data;
+
         this.tokens.access_expire = expires_in;
         this.tokens.access_token = access_token;
         this.tokens.refresh_token = refresh_token;
@@ -127,4 +120,9 @@ module.exports.Client = class {
     getAccessToken() {
         return this.tokens.access_token;
     }
+}
+
+
+module.exports = {
+    Client
 }
