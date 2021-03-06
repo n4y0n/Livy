@@ -2,6 +2,7 @@ import axios from "axios";
 import * as fs from "fs";
 import readline from "readline";
 
+//#region Authentication
 const config = require(__dirname + "/../../config/secrets.json");
 
 const ClientID = config.myanimelist.ClientID;
@@ -108,3 +109,9 @@ export async function refreshTokens(): Promise<void> {
 
 	fs.writeFileSync(tokenFilePath, JSON.stringify(data));
 }
+
+//#endregion Authentication
+
+//#region API
+
+//#endregion API
