@@ -2,10 +2,10 @@ import axios from "axios";
 import * as fs from "fs";
 import readline from "readline";
 
-const config = require("../../config/secrets.json");
+const config = require(__dirname + "/../../config/secrets.json");
 
 const ClientID = config.myanimelist.ClientID;
-const tokenFilePath = "../../config/tokens.json";
+const tokenFilePath = __dirname + "/../../config/tokens.json";
 
 const tempAuthHolder = {} as any;
 

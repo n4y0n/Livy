@@ -4,7 +4,7 @@
   "description": "Backup myanimelist to anilist.",
   "main": "dist/index.js",
   "scripts": {
-    "start": "node .",
+    "start": "tsc && node dist/index.js",
     "build": "tsc",
     "dev": "npm run build -- -w"
   },
