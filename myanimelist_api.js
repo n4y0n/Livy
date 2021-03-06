@@ -63,6 +63,8 @@ class Client {
 
         if (dbTokens.refresh_expire > new Date()) {
             console.log("Found still unexpired tokens. Using those.");
+            this.client_enabled = true;
+
             // TODO: Set access token expiration timeout.
             // setTimeout(() => this.refreshTokens(), expires_in - 10000);
         } else {
@@ -103,16 +105,18 @@ class Client {
     }
 
     async getAnimelist(limit = 1000) {
+        console.log("Downloading Animelist.")
+
         assert_enable(this.client_enabled);
         const url = `https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status&limit=${limit}`
         const token = this.tokens.access_token;
 
         let result = await axios.get(url, { headers: { 'Authorization': 'Bearer ' + token } }).then(r => r.data);
+        require("fs").appendFileSync("./anilist.json", JSON.stringify(result))
 
         while (result.paging?.next) {
-            console.log(console.log("downloading..."))
-            require("fs").appendFileSync("./anilist.json", JSON.stringify(result))
             result = await axios.get(result.paging.next, { headers: { 'Authorization': 'Bearer ' + token } }).then(r => r.data);
+            require("fs").appendFileSync("./anilist.json", JSON.stringify(result))
         }
     }
 
