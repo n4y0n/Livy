@@ -24,7 +24,7 @@ function between(min, max) {
 }
 
 function assert_enable(e) {
-    if (!e) {
+    if (!e && process.env.NODE_ENV !== "production") {
         throw new Error("Client not enabled, please log in first using the OAuth Url in the console.")
     }
 }
@@ -33,8 +33,13 @@ async function upsert(condition, values) {
     return LoginInformation.findOne({ where: condition })
         .then(function (obj) {
             // update
-            if (obj)
-                return obj.update(values);
+            if (obj) {
+                if (values) {
+                    return obj.update(values);
+                } else {
+                    return obj;
+                }
+            }
             // insert
             return LoginInformation.create(values);
         })
@@ -52,20 +57,20 @@ class Client {
         this.verifier_code = generate_code_verifier();
     }
 
-    initOAuthProcess() {
-        upsert({ api: "myanimelist" }, { api: "myanimelist" }).then(dbTokens => {
-            if (dbTokens.refresh_expire > new Date(Date.now() + 864000000)) {
-                console.log("Found still unexpired tokens. Using those.");
-                // TODO: Set access token expiration timeout.
-                // setTimeout(() => this.refreshTokens(), expires_in - 10000);
-            } else {
-                console.log("Please authenticate.")
-            }
+    async initOAuthProcess() {
+        const dbTokens = await upsert({ api: "myanimelist" }, { api: "myanimelist" });
+        let hastoupdate = false;
 
-            this.tokens = dbTokens;
-        });
+        if (dbTokens.refresh_expire > new Date()) {
+            console.log("Found still unexpired tokens. Using those.");
+            // TODO: Set access token expiration timeout.
+            // setTimeout(() => this.refreshTokens(), expires_in - 10000);
+        } else {
+            hastoupdate = true;
+        }
 
-        return base + `v1/oauth2/authorize?response_type=code&client_id=${this.id}&code_challenge=${this.verifier_code}&code_challenge_method=plain`;
+        this.tokens = dbTokens;
+        return { url: base + `v1/oauth2/authorize?response_type=code&client_id=${this.id}&code_challenge=${this.verifier_code}&code_challenge_method=plain`, update: hastoupdate };
     }
 
     challengeAccepted(authorization_code) {
@@ -88,7 +93,8 @@ class Client {
     setOAuthResult(data) {
         const { expires_in, access_token, refresh_token } = data;
 
-        this.tokens.access_expire = expires_in;
+        this.tokens.access_expire = new Date(Date.now() + expires_in);
+        this.tokens.refresh_expire = new Date(Date.now() + 864000000);
         this.tokens.access_token = access_token;
         this.tokens.refresh_token = refresh_token;
         setTimeout(() => this.refreshTokens(), expires_in - 10000);
@@ -96,24 +102,17 @@ class Client {
         this.client_enabled = true;
     }
 
-    getAnimelist(limit = 30) {
-        const client_enabled = this.client_enabled;
+    async getAnimelist(limit = 1000) {
+        assert_enable(this.client_enabled);
         const url = `https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status&limit=${limit}`
         const token = this.tokens.access_token;
 
-        return {
-            _npage: null,
-            next: async function () {
-                assert_enable(client_enabled);
-                try {
-                    const result = await axios.get(url, { headers: { 'Authorization': 'Bearer ' + token } }).then(r => r.data);
-                    console.log(result)
-                    return { done: false, value: result.data };
-                } catch (e) {
-                    return { done: true };
-                }
-            },
-            [Symbol.asyncIterator]: function () { return this; }
+        let result = await axios.get(url, { headers: { 'Authorization': 'Bearer ' + token } }).then(r => r.data);
+
+        while (result.paging?.next) {
+            console.log(console.log("downloading..."))
+            require("fs").appendFileSync("./anilist.json", JSON.stringify(result))
+            result = await axios.get(result.paging.next, { headers: { 'Authorization': 'Bearer ' + token } }).then(r => r.data);
         }
     }
 
