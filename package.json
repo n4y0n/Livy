@@ -23,5 +23,8 @@
   "homepage": "https://github.com/n4y0n/livy#readme",
   "dependencies": {
     "axios": "^0.21.1"
+  },
+  "devDependencies": {
+    "typescript": "^4.2.3"
   }
 }
