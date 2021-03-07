@@ -1,12 +1,35 @@
 import axios from "axios";
-import * as fs from "fs";
+import { readFileSync, writeFileSync, existsSync } from "fs";
 import readline from "readline";
+import { Request, RequestType, Tokens } from "../types/mal";
+
+const tokenFilePath = __dirname + "/../../config/tokens.json";
+
+const toQueryString = (object: any) => {
+	let querystring = "";
+	const keys = Object.keys(object);
+
+	for (let i = 0; i < keys.length; i++) {
+		const key = keys[i];
+		const value = object[key];
+
+		querystring += `${key}=${value}`;
+
+		if (i < keys.length - 1) {
+			querystring += "&";
+		}
+	}
+	return querystring;
+};
+
+function between(min: number, max: number): number {
+	return Math.floor(Math.random() * (max - min) + min);
+}
 
 //#region Authentication
 const config = require(__dirname + "/../../config/secrets.json");
 
 const ClientID = config.myanimelist.ClientID;
-const tokenFilePath = __dirname + "/../../config/tokens.json";
 
 const tempAuthHolder = {} as any;
 
@@ -22,10 +45,6 @@ function genPkceChallenge(): string {
 	return gen;
 }
 
-function between(min: number, max: number): number {
-	return Math.floor(Math.random() * (max - min) + min);
-}
-
 function getAuthUrl() {
 	const verifier = genPkceChallenge();
 	const challenge = verifier;
@@ -33,6 +52,20 @@ function getAuthUrl() {
 	tempAuthHolder["authentication"] = { verifier, challenge };
 
 	return `https://myanimelist.net/v1/oauth2/authorize?response_type=code&client_id=${ClientID}&code_challenge=${challenge}&code_challenge_method=plain`;
+}
+
+async function tryRefresh(token: Tokens) {
+	if (token.updatedAt < Date.now() + token.expires_in) return;
+
+	const test = await axios.get("https://api.myanimelist.net/v2/users/@me", {
+		headers: {
+			Authorization: `Bearer ${token.access_token}`,
+		},
+	});
+
+	if (test.status == 401) {
+		await refreshTokens();
+	}
 }
 
 async function generateAndSaveTokens(
@@ -47,7 +80,12 @@ async function generateAndSaveTokens(
 		},
 	};
 
-	const body = `client_id=${ClientID}&grant_type=authorization_code&code=${authorization_code}&code_verifier=${tempAuthHolder["authentication"].verifier}`;
+	const body = toQueryString({
+		client_id: ClientID,
+		grant_type: "authorization_code",
+		code: authorization_code,
+		code_verifier: tempAuthHolder["authentication"].verifier,
+	});
 
 	const res = await axios.post(url, body, options);
 	const data = res.data;
@@ -57,11 +95,15 @@ async function generateAndSaveTokens(
 		throw new Error(data);
 	}
 
-	fs.writeFileSync(tokenFilePath, JSON.stringify(data));
+	data["updatedAt"] = Date.now();
+
+	writeFileSync(tokenFilePath, JSON.stringify(data));
 }
 
 export async function authenticate() {
-	console.log(`Please visit this URL and get your authentication code: ${getAuthUrl()}\n\n`);
+	console.log(
+		`Please visit this URL and get your authentication code: ${getAuthUrl()}\n\n`
+	);
 
 	const rl = readline.createInterface({
 		input: process.stdin,
@@ -79,17 +121,17 @@ export async function authenticate() {
 		return;
 	}
 
-	generateAndSaveTokens(authCode)
+	generateAndSaveTokens(authCode);
 }
 
 export async function refreshTokens(): Promise<void> {
-	if (!fs.existsSync(tokenFilePath)) {
+	if (!existsSync(tokenFilePath)) {
 		console.log("You need to generate a token first!.");
 		return;
 	}
 
 	const url = "https://myanimelist.net/v1/oauth2/token";
-	const token = JSON.parse(fs.readFileSync(tokenFilePath, "utf8"));
+	const token = JSON.parse(readFileSync(tokenFilePath, "utf8"));
 
 	const options = {
 		headers: {
@@ -97,9 +139,13 @@ export async function refreshTokens(): Promise<void> {
 			Authorization: "Basic " + ClientID,
 		},
 	};
-	const body = `client_id=${ClientID}&grant_type=refresh_token&refresh_token=${token.refresh_token}`;
+	const body = toQueryString({
+		client_id: ClientID,
+		grant_type: "refresh_token",
+		refresh_token: token.refresh_token,
+	});
 
-	const res = await axios.post(url, body, options)
+	const res = await axios.post(url, body, options);
 	const data = await res.data;
 
 	if (!data.access_token || data.access_token.length < 300) {
@@ -107,11 +153,42 @@ export async function refreshTokens(): Promise<void> {
 		throw new Error(token);
 	}
 
-	fs.writeFileSync(tokenFilePath, JSON.stringify(data));
+	data["updatedAt"] = Date.now();
+
+	writeFileSync(tokenFilePath, JSON.stringify(data));
 }
 
 //#endregion Authentication
 
 //#region API
 
+const getTokens = () => {
+	return JSON.parse(readFileSync(tokenFilePath, "utf-8"));
+};
+
+export const sendRequest = async (url: string, type: RequestType, data: any = {}) => {
+	const token = getTokens();
+	await tryRefresh(token);
+
+	const requestOptions: Request = {
+		url: url,
+		method: type,
+		headers: {
+			Authorization: `Bearer ${token.access_token}`,
+			"content-type": "application/x-www-form-urlencoded",
+		},
+		data: toQueryString(data),
+	};
+
+	if (type == "GET" || type == "DELETE") delete requestOptions.data;
+
+	const res = await axios.request(requestOptions);
+	const resData = await res.data;
+
+	if (res.status == 200) {
+		return resData;
+	} else {
+		throw resData;
+	}
+};
 //#endregion API
