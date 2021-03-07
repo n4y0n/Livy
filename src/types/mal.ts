@@ -16,12 +16,8 @@ export interface Request {
 }
 
 export interface Node {
-	id: number;
-	title: string;
-
-	status: string;
+	id: number | null;
 	score: number;
-	num_episodes_watched: number;
-	is_rewatching: boolean;
-	updated_at: string;
+	status: string;
+	progress: number;
 }

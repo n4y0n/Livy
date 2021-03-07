@@ -1,8 +1,8 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { Cache, CacheType } from "./types/cache";
+import { existsSync, readFileSync, writeFileSync } from "fs";
+import { CacheObject, CacheType } from "./types/cache";
 
 const resolveCachePath = (type: CacheType) => {
-	const base = `${__dirname}/../../cache/`;
+	const base = `${__dirname}/../cache/`;
 
 	switch (type) {
 		case "ANI_ANIME":
@@ -16,7 +16,7 @@ const resolveCachePath = (type: CacheType) => {
 	}
 };
 
-export const writeCache = (cache: Cache): void => {
+export const writeCache = (cache: CacheObject): void => {
 	const path = resolveCachePath(cache.type);
 
 	writeFileSync(path, JSON.stringify(cache), {
@@ -24,7 +24,7 @@ export const writeCache = (cache: Cache): void => {
 	});
 };
 
-export const readCache = (type: CacheType): Cache | false => {
+export const readCache = (type: CacheType): CacheObject | false => {
 	const path = resolveCachePath(type);
 
 	if (!existsSync(path)) return false;

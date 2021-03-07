@@ -1,3 +1,3 @@
-import { getAnimelist } from "./api/myanimelist";
+import { getLists } from "./api/myanimelist";
 
-getAnimelist()
+getLists()

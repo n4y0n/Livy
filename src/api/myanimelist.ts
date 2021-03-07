@@ -1,8 +1,8 @@
 import axios from "axios";
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import readline from "readline";
-import { writeCache } from "../cache";
-import { Cache } from "../types/cache";
+import * as Cache from "../cache";
+import { CacheObject } from "../types/cache";
 import { Node, Request, RequestType, Tokens } from "../types/mal";
 
 const tokenFilePath = __dirname + "/../../config/tokens.json";
@@ -168,7 +168,36 @@ const getTokens = () => {
 	return JSON.parse(readFileSync(tokenFilePath, "utf-8"));
 };
 
-export const sendRequest = async (url: string, type: RequestType, data: any = {}) => {
+const getList = async (type: "ANIME" | "MANGA") => {
+	const list = [];
+	let response;
+	let mapl: string;
+
+	switch (type) {
+		case "ANIME":
+			mapl = "animelist";
+			break;
+		case "MANGA":
+			mapl = "mangalist";
+			break;
+	}
+
+	do {
+		response = await sendRequest(
+			`https://api.myanimelist.net/v2/users/@me/${mapl}?fields=list_status&limit=${1000}`,
+			"GET"
+		);
+		list.push(...response.data);
+	} while (response?.paging?.next);
+
+	return list;
+};
+
+export const sendRequest = async (
+	url: string,
+	type: RequestType,
+	data: any = {}
+) => {
 	const token = getTokens();
 	await tryRefresh(token);
 
@@ -194,41 +223,63 @@ export const sendRequest = async (url: string, type: RequestType, data: any = {}
 	}
 };
 
-export const getAnimelist = async () => {
-	const animelist = [];
-	let response;
+// "node": {
+// 	"id": 97871,
+// 	"title": "Zettai ni Hatarakitakunai Dungeon Master ga Damin wo Musaboru made",
+// 	"main_picture": {
+// 		"medium": "https://api-cdn.myanimelist.net/images/manga/3/175277.jpg",
+// 		"large": "https://api-cdn.myanimelist.net/images/manga/3/175277l.jpg"
+// 	}
+// },
+// "list_status": {
+// 	"status": "reading",
+// 	"is_rereading": false,
+// 	"num_volumes_read": 1,
+// 	"num_chapters_read": 0,
+// 	"score": 8,
+// 	"updated_at": "2018-08-20T19:54:17+00:00"
+// }
+export const getLists = async () => {
+	const animelist = await getList("ANIME");
+	const mangalist = await getList("MANGA");
 
-	do {
-		response = await sendRequest(
-			`https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status&limit=${1000}`,
-			"GET"
-		);
-		animelist.push(...response.data)
-	} while(response?.paging?.next);
-
-	let nodelist: Array<Node> = [];
-
+	let anime_nodelist: Array<Node> = [];
 	for (let item of animelist) {
 		const node = item.node;
 		const status = item.list_status;
-
-		nodelist.push({
+		anime_nodelist.push({
 			id: node.id,
-			is_rewatching: status.is_rewatching,
-			num_episodes_watched: status.num_episodes_watched,
 			score: status.score,
+			progress: status.num_episodes_watched,
 			status: status.status,
-			title: node.title,
-			updated_at: status.updated_at
 		})
 	}
 
-	let cache = {
+	let manga_nodelist: Array<Node> = [];
+	for (let item of mangalist) {
+		const node = item.node;
+		const status = item.list_status;
+
+		manga_nodelist.push({
+			id: node.id,
+			progress: status.num_volumes_read,
+			score: status.score,
+			status: status.status,
+		})
+	}
+
+	let anime = {
 		type: "MAL_ANIME",
 		updatedAt: new Date(),
-		data: nodelist,
-	} as Cache;
+		data: anime_nodelist,
+	} as CacheObject;
+	let manga = {
+		type: "MAL_MANGA",
+		updatedAt: new Date(),
+		data: manga_nodelist,
+	} as CacheObject;
 
-	writeCache(cache);
+	Cache.writeCache(anime);
+	Cache.writeCache(manga);
 };
 //#endregion API
