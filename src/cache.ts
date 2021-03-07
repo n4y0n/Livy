@@ -16,12 +16,13 @@ const resolveCachePath = (type: CacheType) => {
 	}
 };
 
-export const writeCache = (cache: CacheObject): void => {
-	const path = resolveCachePath(cache.type);
-
-	writeFileSync(path, JSON.stringify(cache), {
-		encoding: "utf-8",
-	});
+export const writeCache = (...cache: CacheObject[]): void => {
+	for (let obj of cache) {
+		const path = resolveCachePath(obj.type);
+		writeFileSync(path, JSON.stringify(obj), {
+			encoding: "utf-8",
+		});
+	}
 };
 
 export const readCache = (type: CacheType): CacheObject | false => {

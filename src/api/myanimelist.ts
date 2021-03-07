@@ -2,7 +2,7 @@ import axios from "axios";
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import readline from "readline";
 import * as Cache from "../cache";
-import { CacheObject } from "../types/cache";
+import { CacheData, CacheObject } from "../types/cache";
 import { Node, Request, RequestType, Tokens } from "../types/mal";
 
 const tokenFilePath = __dirname + "/../../config/tokens.json";
@@ -168,6 +168,57 @@ const getTokens = () => {
 	return JSON.parse(readFileSync(tokenFilePath, "utf-8"));
 };
 
+const toNodeList = (type: "ANIME" | "MANGA", list: any[]): CacheData => {
+	const construct = {
+		total: 0,
+		completed: 0,
+		dropped: 0,
+		hold: 0,
+		plan: 0,
+		inprogress: 0,
+		elements: [] as Array<Node>,
+	};
+
+	let nlist: Array<Node> = [];
+	for (let item of list) {
+		const node = item.node;
+		const status = item.list_status;
+
+		construct.total++;
+
+		if (status.status === "completed") {
+			construct.completed++;
+		}
+		if (status.status === "dropped") {
+			construct.dropped++;
+		}
+		if (status.status === "plan_to_watch" || status.status === "plan_to_read") {
+			construct.plan++;
+		}
+		if (status.status === "on_hold") {
+			construct.hold++;
+		}
+		if (status.status === "watching" || status.status === "reading") {
+			construct.inprogress++;
+		}
+
+
+		let nodeItem: Node = {
+			id: node.id,
+			score: status.score,
+			progress:
+				type === "ANIME"
+					? status.num_episodes_watched
+					: status.num_volumes_read,
+			status: status.status,
+		};
+		nlist.push(nodeItem);
+	}
+
+	construct.elements = nlist;
+	return construct;
+};
+
 const getList = async (type: "ANIME" | "MANGA") => {
 	const list = [];
 	let response;
@@ -223,63 +274,21 @@ export const sendRequest = async (
 	}
 };
 
-// "node": {
-// 	"id": 97871,
-// 	"title": "Zettai ni Hatarakitakunai Dungeon Master ga Damin wo Musaboru made",
-// 	"main_picture": {
-// 		"medium": "https://api-cdn.myanimelist.net/images/manga/3/175277.jpg",
-// 		"large": "https://api-cdn.myanimelist.net/images/manga/3/175277l.jpg"
-// 	}
-// },
-// "list_status": {
-// 	"status": "reading",
-// 	"is_rereading": false,
-// 	"num_volumes_read": 1,
-// 	"num_chapters_read": 0,
-// 	"score": 8,
-// 	"updated_at": "2018-08-20T19:54:17+00:00"
-// }
 export const getLists = async () => {
 	const animelist = await getList("ANIME");
 	const mangalist = await getList("MANGA");
 
-	let anime_nodelist: Array<Node> = [];
-	for (let item of animelist) {
-		const node = item.node;
-		const status = item.list_status;
-		anime_nodelist.push({
-			id: node.id,
-			score: status.score,
-			progress: status.num_episodes_watched,
-			status: status.status,
-		})
-	}
-
-	let manga_nodelist: Array<Node> = [];
-	for (let item of mangalist) {
-		const node = item.node;
-		const status = item.list_status;
-
-		manga_nodelist.push({
-			id: node.id,
-			progress: status.num_volumes_read,
-			score: status.score,
-			status: status.status,
-		})
-	}
-
 	let anime = {
 		type: "MAL_ANIME",
 		updatedAt: new Date(),
-		data: anime_nodelist,
+		data: toNodeList("ANIME", animelist),
 	} as CacheObject;
 	let manga = {
 		type: "MAL_MANGA",
 		updatedAt: new Date(),
-		data: manga_nodelist,
+		data: toNodeList("MANGA", mangalist),
 	} as CacheObject;
 
-	Cache.writeCache(anime);
-	Cache.writeCache(manga);
+	Cache.writeCache(anime, manga);
 };
 //#endregion API
