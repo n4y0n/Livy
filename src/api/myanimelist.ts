@@ -1,7 +1,9 @@
 import axios from "axios";
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import readline from "readline";
-import { Request, RequestType, Tokens } from "../types/mal";
+import { writeCache } from "../cache";
+import { Cache } from "../types/cache";
+import { Node, Request, RequestType, Tokens } from "../types/mal";
 
 const tokenFilePath = __dirname + "/../../config/tokens.json";
 
@@ -190,5 +192,43 @@ export const sendRequest = async (url: string, type: RequestType, data: any = {}
 	} else {
 		throw resData;
 	}
+};
+
+export const getAnimelist = async () => {
+	const animelist = [];
+	let response;
+
+	do {
+		response = await sendRequest(
+			`https://api.myanimelist.net/v2/users/@me/animelist?fields=list_status&limit=${1000}`,
+			"GET"
+		);
+		animelist.push(...response.data)
+	} while(response?.paging?.next);
+
+	let nodelist: Array<Node> = [];
+
+	for (let item of animelist) {
+		const node = item.node;
+		const status = item.list_status;
+
+		nodelist.push({
+			id: node.id,
+			is_rewatching: status.is_rewatching,
+			num_episodes_watched: status.num_episodes_watched,
+			score: status.score,
+			status: status.status,
+			title: node.title,
+			updated_at: status.updated_at
+		})
+	}
+
+	let cache = {
+		type: "MAL_ANIME",
+		updatedAt: new Date(),
+		data: nodelist,
+	} as Cache;
+
+	writeCache(cache);
 };
 //#endregion API

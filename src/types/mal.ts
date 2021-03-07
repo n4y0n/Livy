@@ -14,3 +14,14 @@ export interface Request {
 	headers: any;
 	data?: string;
 }
+
+export interface Node {
+	id: number;
+	title: string;
+
+	status: string;
+	score: number;
+	num_episodes_watched: number;
+	is_rewatching: boolean;
+	updated_at: string;
+}
