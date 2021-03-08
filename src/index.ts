@@ -1,3 +1,3 @@
-import { getLists } from "./api/myanimelist";
+import { getLists } from "./api/anilist";
 
 getLists()
