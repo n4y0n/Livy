@@ -169,39 +169,40 @@ const getTokens = () => {
 };
 
 const toNodeList = (type: "ANIME" | "MANGA", list: any[]): CacheData => {
-	const construct = {
-		total: 0,
-		completed: 0,
-		dropped: 0,
-		hold: 0,
-		plan: 0,
-		inprogress: 0,
-		elements: [] as Array<Node>,
-	};
+	const data = {
+		meta: {
+			total: 0,
+			completed: 0,
+			dropped: 0,
+			hold: 0,
+			plan: 0,
+			inprogress: 0,
+		},
+		list: [] as Array<Node>,
+	} as CacheData;
 
 	let nlist: Array<Node> = [];
 	for (let item of list) {
 		const node = item.node;
 		const status = item.list_status;
 
-		construct.total++;
+		data.meta.total++;
 
 		if (status.status === "completed") {
-			construct.completed++;
+			data.meta.completed++;
 		}
 		if (status.status === "dropped") {
-			construct.dropped++;
+			data.meta.dropped++;
 		}
 		if (status.status === "plan_to_watch" || status.status === "plan_to_read") {
-			construct.plan++;
+			data.meta.plan++;
 		}
 		if (status.status === "on_hold") {
-			construct.hold++;
+			data.meta.hold++;
 		}
 		if (status.status === "watching" || status.status === "reading") {
-			construct.inprogress++;
+			data.meta.inprogress++;
 		}
-
 
 		let nodeItem: Node = {
 			id: node.id,
@@ -215,8 +216,8 @@ const toNodeList = (type: "ANIME" | "MANGA", list: any[]): CacheData => {
 		nlist.push(nodeItem);
 	}
 
-	construct.elements = nlist;
-	return construct;
+	data.list = nlist;
+	return data;
 };
 
 const getList = async (type: "ANIME" | "MANGA") => {
